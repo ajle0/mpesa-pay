@@ -1,0 +1,30 @@
+[project]
+name = "mpesa-pay"
+version = "0.1.0"
+description = "M-Pesa Daraja STK Push payment page with admin dashboard"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2,<6",
+    "django-axes>=8.3.1",
+    "django-environ>=0.14.0",
+    "gunicorn>=26.2.0",
+    "psycopg[binary]>=3.3.6",
+    "requests>=2.34.2",
+    "tzdata>=2026.6",
+    "whitenoise>=6.12.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytailwindcss>=0.4.2",
+    "ruff>=0.17.3",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["payments/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "DJ"]
+ignore = ["E501"]  # the formatter handles line length; long SVG strings are fine

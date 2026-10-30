@@ -1,0 +1,20 @@
+{% load ui %}
+<header class="mb-6">
+  <a href="{% url 'payments:index' %}" class="text-lg font-bold tracking-tight">{{ SITE_NAME }}</a>
+  <div class="mt-4 grid grid-cols-2 gap-3">
+    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3">
+      <span class="text-emerald-600">{% icon "shield" "w-6 h-6" %}</span>
+      <div class="leading-tight">
+        <p class="text-sm font-medium">Secure payment</p>
+        <p class="text-xs text-slate-500">PIN entered on your phone</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3">
+      <span class="text-emerald-600">{% icon "check-circle" "w-6 h-6" %}</span>
+      <div class="leading-tight">
+        <p class="text-sm font-medium">Instant receipt</p>
+        <p class="text-xs text-slate-500">Confirmed on screen</p>
+      </div>
+    </div>
+  </div>
+</header>

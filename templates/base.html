@@ -1,0 +1,23 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/app.js' %}" defer></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  {% if MPESA_MODE != "production" %}
+    <div class="bg-amber-100 text-amber-900 text-xs sm:text-sm text-center px-4 py-2">
+      {% if MPESA_MODE == "simulate" %}
+        <strong>Simulation mode.</strong> No request goes to Safaricom and no money moves.
+      {% else %}
+        <strong>Sandbox mode.</strong> Test payments only; no real money moves.
+      {% endif %}
+    </div>
+  {% endif %}
+  {% block body %}{% endblock %}
+</body>
+</html>

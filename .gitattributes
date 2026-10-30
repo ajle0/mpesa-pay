@@ -1,0 +1,9 @@
+# Normalise line endings so the project behaves the same on Windows, macOS and Linux.
+* text=auto eol=lf
+
+# Shell scripts MUST keep LF endings or they break inside Linux containers.
+*.sh text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary

@@ -1,0 +1,84 @@
+{% load ui %}
+{# Swapped in place by HTMX. Only a pending payment keeps polling. #}
+<div id="payment-status" class="text-center"
+     {% if txn.is_pending %}
+       hx-get="{% url 'payments:payment_status' txn.pk %}" hx-trigger="every 3s" hx-swap="outerHTML"
+     {% endif %}
+     aria-live="polite">
+
+  {% if txn.is_pending %}
+    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+      <span class="animate-pulse">{% icon "smartphone" "w-8 h-8" %}</span>
+    </div>
+    <h2 class="mt-4 text-xl font-semibold">Check your phone</h2>
+    <p class="mt-2 text-sm text-slate-600">
+      Enter your M-Pesa PIN on <strong class="font-semibold text-slate-900">{{ txn.masked_phone }}</strong>
+      to pay <strong class="font-semibold text-slate-900 whitespace-nowrap">{{ txn.amount|kes }}</strong>.
+    </p>
+    <p class="mt-5 inline-flex items-center gap-2 text-sm text-slate-500">
+      <span class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-600"></span>
+      Waiting for M-Pesa…
+    </p>
+
+    {% if MPESA_MODE == "simulate" %}
+      <div class="mt-6 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-left">
+        <p class="text-xs font-medium text-amber-900">Simulation: pretend the customer…</p>
+        <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+          {% for outcome, label in simulate_choices %}
+            <button type="button"
+                    hx-post="{% url 'payments:simulate' txn.pk outcome %}" hx-target="#payment-status" hx-swap="outerHTML"
+                    class="rounded-lg border border-amber-300 bg-white px-2 py-1.5 font-medium text-amber-900 hover:bg-amber-100">
+              {{ label }}
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+  {% elif txn.status == "SUCCESS" %}
+    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+      {% icon "check-circle" "w-8 h-8" %}
+    </div>
+    <h2 class="mt-4 text-xl font-semibold">Payment received</h2>
+    <p class="mt-1 text-3xl font-bold tracking-tight">{{ txn.amount|kes }}</p>
+    <dl class="mt-5 divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm text-left">
+      <div class="flex justify-between gap-4 px-4 py-2.5">
+        <dt class="text-slate-500">M-Pesa receipt</dt>
+        <dd class="font-mono font-semibold">{{ txn.mpesa_receipt|default:"Arriving shortly" }}</dd>
+      </div>
+      {% if txn.package %}
+      <div class="flex justify-between gap-4 px-4 py-2.5">
+        <dt class="text-slate-500">Package</dt><dd class="font-medium">{{ txn.package.name }}</dd>
+      </div>
+      {% endif %}
+      <div class="flex justify-between gap-4 px-4 py-2.5">
+        <dt class="text-slate-500">Phone</dt><dd class="font-medium">{{ txn.masked_phone }}</dd>
+      </div>
+      <div class="flex justify-between gap-4 px-4 py-2.5">
+        <dt class="text-slate-500">Reference</dt><dd class="font-mono">{{ txn.reference }}</dd>
+      </div>
+      <div class="flex justify-between gap-4 px-4 py-2.5">
+        <dt class="text-slate-500">Date</dt>
+        <dd>{{ txn.mpesa_transaction_date|default:txn.updated_at|date:"j M Y, H:i" }}</dd>
+      </div>
+    </dl>
+    <a href="{% url 'payments:index' %}"
+       class="mt-6 inline-flex w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-3 font-semibold hover:bg-slate-50">
+      Make another payment
+    </a>
+
+  {% else %}
+    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full
+                {% if txn.status == 'FAILED' %}bg-red-50 text-red-600{% else %}bg-slate-100 text-slate-500{% endif %}">
+      {% if txn.status == "TIMEOUT" %}{% icon "clock" "w-8 h-8" %}{% else %}{% icon "x-circle" "w-8 h-8" %}{% endif %}
+    </div>
+    <h2 class="mt-4 text-xl font-semibold">
+      {% if txn.status == "CANCELLED" %}Payment cancelled{% elif txn.status == "TIMEOUT" %}No response{% else %}Payment failed{% endif %}
+    </h2>
+    <p class="mt-2 text-sm text-slate-600">{{ txn.customer_message }}</p>
+    <a href="{% url 'payments:index' %}"
+       class="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 font-semibold text-white hover:bg-emerald-700">
+      {% icon "refresh" "w-4 h-4" %} Try again
+    </a>
+  {% endif %}
+</div>

@@ -1,0 +1,53 @@
+# Local development: Django + PostgreSQL.
+#   docker compose up --build
+# Add a public HTTPS tunnel for real Safaricom callbacks (needs NGROK_AUTHTOKEN in .env):
+#   docker compose --profile tunnel up --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mpesa
+      POSTGRES_USER: mpesa
+      POSTGRES_PASSWORD: mpesa
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mpesa -d mpesa"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build: .
+    # Dev server with auto-reload; the image's default command (gunicorn) is for production.
+    command: python manage.py runserver 0.0.0.0:8000
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://mpesa:mpesa@db:5432/mpesa
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  tunnel:
+    image: ngrok/ngrok:3-alpine
+    profiles: ["tunnel"]
+    command: ["http", "--url=${MPESA_CALLBACK_BASE_URL:-}", "web:8000"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    ports:
+      - "4040:4040" # ngrok inspector: see every callback Safaricom sends
+    depends_on:
+      - web
+
+volumes:
+  pgdata:

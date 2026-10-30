@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block title %}Dashboard · {{ SITE_NAME }}{% endblock %}
+
+{% block body %}
+<header class="border-b border-slate-200 bg-white">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <div class="flex items-center gap-2">
+      <a href="{% url 'payments:index' %}" class="font-bold tracking-tight">{{ SITE_NAME }}</a>
+      <span class="text-slate-300">/</span>
+      <span class="font-medium text-slate-600">Dashboard</span>
+    </div>
+    <nav class="flex items-center gap-1 text-sm">
+      <a href="{% url 'admin:payments_package_changelist' %}"
+         class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">
+        {% icon "package" "w-4 h-4" %} Packages
+      </a>
+      <a href="{% url 'admin:index' %}"
+         class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">
+        {% icon "settings" "w-4 h-4" %} Admin
+      </a>
+      <form method="post" action="{% url 'admin:logout' %}">
+        {% csrf_token %}
+        <button class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">
+          {% icon "log-out" "w-4 h-4" %} Log out
+        </button>
+      </form>
+    </nav>
+  </div>
+</header>
+
+<main class="mx-auto max-w-6xl px-4 py-6">
+  <form id="filters" class="flex flex-wrap items-center gap-2" method="get"
+        hx-get="{% url 'dashboard:live' %}" hx-target="#live" hx-swap="innerHTML"
+        hx-trigger="change, keyup changed delay:400ms from:#q, submit">
+    <input id="q" name="q" value="{{ q }}" type="search" placeholder="Search phone, receipt or package"
+           class="w-full sm:w-72 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none
+                  focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">
+    <select name="status" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+      <option value="">All statuses</option>
+      {% for value, label in statuses %}
+        <option value="{{ value }}" {% if value == status_filter %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {# Refreshes itself every 5 seconds, keeping the current filters. #}
+  <div id="live" class="mt-4" hx-get="{% url 'dashboard:live' %}" hx-trigger="every 5s"
+       hx-include="#filters" hx-swap="innerHTML">
+    {% include "dashboard/_live.html" %}
+  </div>
+</main>
+{% endblock %}

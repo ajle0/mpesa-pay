@@ -1,0 +1,14 @@
+/*
+ * Tailwind source. The compiled file is static/css/app.css and is committed,
+ * so you only need to rebuild when you change classes in templates:
+ *     uv run tailwindcss -i assets/tailwind.css -o static/css/app.css --minify
+ */
+@import "tailwindcss";
+@source "../templates";
+@source "../payments";
+@source "../dashboard";
+@source "../static/js";
+
+/* Loading state while HTMX submits the payment form. */
+.htmx-request .spinner { display: inline-block; }
+.htmx-request .htmx-indicator-hide { display: none; }

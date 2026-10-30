@@ -1,0 +1,10 @@
+{% load ui %}{# Status is shown with an icon and a word, never colour alone. #}
+{% if status == "SUCCESS" %}
+  <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{% icon "check-circle" "w-3.5 h-3.5" %} {{ label }}</span>
+{% elif status == "PENDING" %}
+  <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{% icon "clock" "w-3.5 h-3.5" %} {{ label }}</span>
+{% elif status == "FAILED" %}
+  <span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">{% icon "x-circle" "w-3.5 h-3.5" %} {{ label }}</span>
+{% else %}
+  <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{% icon "x-circle" "w-3.5 h-3.5" %} {{ label }}</span>
+{% endif %}

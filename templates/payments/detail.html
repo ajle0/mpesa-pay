@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Payment {{ txn.reference }} · {{ SITE_NAME }}{% endblock %}
+{% block body %}
+<main class="mx-auto max-w-md px-4 py-8 sm:py-14">
+  {% include "payments/_header.html" %}
+  <section id="payment-card" class="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+    {% include "payments/_status.html" %}
+  </section>
+  {% include "payments/_footer.html" %}
+</main>
+{% endblock %}

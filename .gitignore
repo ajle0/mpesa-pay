@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.ruff_cache/
+
+# Virtual environments
+.venv
+venv/
+
+# Local config and data — never commit secrets
+.env
+db.sqlite3
+staticfiles/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db
