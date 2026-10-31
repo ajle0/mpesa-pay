@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .daraja import NAIROBI, DarajaError, get_client, normalize_phone
-from .models import Package, Transaction
+from .models import Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -67,13 +67,40 @@ def _check_rate_limits(phone: str, client_ip: str | None) -> None:
         raise PaymentError("Too many payment requests. Please wait a few minutes.")
 
 
-def initiate_payment(*, package: Package, raw_phone: str, client_ip: str | None = None) -> Transaction:
+def parse_amount(raw) -> int:
+    """
+    Turn what the customer typed into whole shillings.
+
+    Accepts "500", "1,500", "Ksh 1 500" and "250.00". M-Pesa only moves whole
+    shillings, so cents are rejected rather than silently rounded.
+    """
+    cleaned = str(raw or "").strip().lower().replace(",", "").replace(" ", "")
+    for prefix in ("kes", "ksh", "sh"):
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix) :]
+            break
+    if cleaned.endswith(".00"):
+        cleaned = cleaned[:-3]
+    elif cleaned.endswith(".0"):
+        cleaned = cleaned[:-2]
+    if not cleaned.isdigit():
+        raise PaymentError("Enter an amount in whole shillings, e.g. 500.")
+
+    amount = int(cleaned)
+    lo, hi = settings.PAY_MIN_AMOUNT, settings.PAY_MAX_AMOUNT
+    if amount < lo:
+        raise PaymentError(f"The minimum amount is Ksh {lo:,}.")
+    if amount > hi:
+        raise PaymentError(f"The maximum amount is Ksh {hi:,}.")
+    return amount
+
+
+def initiate_payment(*, raw_amount, raw_phone: str, client_ip: str | None = None) -> Transaction:
     """
     Validate, record a PENDING transaction, then send the STK prompt.
-    The amount always comes from the database, never from the browser.
+    The amount is re-validated here on the server, whatever the browser sent.
     """
-    if not package.is_active:
-        raise PaymentError("That package is no longer available.")
+    amount = parse_amount(raw_amount)
     try:
         phone = normalize_phone(raw_phone)
     except ValueError as exc:
@@ -82,7 +109,7 @@ def initiate_payment(*, package: Package, raw_phone: str, client_ip: str | None 
     _check_rate_limits(phone, client_ip)
     url = callback_url()
 
-    txn = Transaction.objects.create(package=package, phone=phone, amount=package.price, client_ip=client_ip)
+    txn = Transaction.objects.create(phone=phone, amount=amount, client_ip=client_ip)
     try:
         ack = get_client().stk_push(
             phone=phone, amount=txn.amount, callback_url=url, reference=settings.MPESA_ACCOUNT_REFERENCE

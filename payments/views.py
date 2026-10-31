@@ -11,14 +11,16 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from . import services
-from .models import Package, Transaction
+from .models import Transaction
 
 logger = logging.getLogger(__name__)
 
 
 class PayForm(forms.Form):
     phone = forms.CharField(max_length=20)
-    package = forms.ModelChoiceField(queryset=Package.objects.filter(is_active=True))
+    # Free text on purpose: services.parse_amount understands "1,500" and gives
+    # friendlier errors than an IntegerField would.
+    amount = forms.CharField(max_length=20)
 
 
 def _client_ip(request) -> str | None:
@@ -41,9 +43,7 @@ def _render_status(request, txn: Transaction):
 # Customer pages
 # --------------------------------------------------------------------------
 def _index_context(**extra):
-    packages = list(Package.objects.filter(is_active=True))
-    selected = next((p for p in packages if p.is_popular), packages[0] if packages else None)
-    return {"packages": packages, "selected": selected, **extra}
+    return {"min_amount": settings.PAY_MIN_AMOUNT, "max_amount": settings.PAY_MAX_AMOUNT, **extra}
 
 
 @require_GET
@@ -58,11 +58,11 @@ def pay(request):
     txn = None
 
     if not form.is_valid():
-        error = "Choose a package and enter your M-Pesa number."
+        error = "Enter your M-Pesa number and an amount."
     else:
         try:
             txn = services.initiate_payment(
-                package=form.cleaned_data["package"],
+                raw_amount=form.cleaned_data["amount"],
                 raw_phone=form.cleaned_data["phone"],
                 client_ip=_client_ip(request),
             )
@@ -81,7 +81,10 @@ def pay(request):
         return response
 
     if error:
-        return render(request, "payments/index.html", _index_context(error=error), status=400)
+        context = _index_context(
+            error=error, phone=request.POST.get("phone", ""), amount=request.POST.get("amount", "")
+        )
+        return render(request, "payments/index.html", context, status=400)
     return redirect("payments:payment_detail", pk=txn.pk)
 
 

@@ -7,9 +7,9 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from payments import services
-from payments.models import Package, Transaction
+from payments.models import Transaction
 
-from .test_services import callback
+from .test_services import callback, pay
 
 Status = Transaction.Status
 SECRET = "test-callback-secret-0123456789"
@@ -17,53 +17,61 @@ SECRET = "test-callback-secret-0123456789"
 
 @override_settings(MPESA_MODE="simulate", MPESA_CALLBACK_SECRET=SECRET)
 class CustomerPageTests(TestCase):
-    def setUp(self):
-        Package.objects.all().delete()
-        self.package = Package.objects.create(name="Daily", price=30, is_popular=True)
+    def post_pay(self, htmx=True, **data):
+        data = {"phone": "0712345678", "amount": "30", **data}
+        extra = {"HTTP_HX_REQUEST": "true"} if htmx else {}
+        return self.client.post(reverse("payments:pay"), data, **extra)
 
-    def test_index_lists_packages(self):
+    def test_index_shows_amount_field(self):
         resp = self.client.get(reverse("payments:index"))
-        self.assertContains(resp, "Ksh 30")
-        self.assertContains(resp, "Daily")
+        self.assertContains(resp, 'name="amount"')
+        self.assertContains(resp, "Ksh 250,000")  # the maximum, shown as a hint
+        self.assertNotContains(resp, 'name="package"')
 
     def test_htmx_pay_returns_status_and_pushes_url(self):
-        resp = self.client.post(
-            reverse("payments:pay"), {"phone": "0712345678", "package": self.package.pk}, HTTP_HX_REQUEST="true"
-        )
+        resp = self.post_pay(amount="1,500")
         txn = Transaction.objects.get()
+        self.assertEqual(txn.amount, 1500)
         self.assertContains(resp, "Check your phone")
+        self.assertContains(resp, "Ksh 1,500")
         self.assertEqual(resp["HX-Push-Url"], reverse("payments:payment_detail", args=[txn.pk]))
 
     def test_plain_form_post_redirects(self):
-        resp = self.client.post(reverse("payments:pay"), {"phone": "0712345678", "package": self.package.pk})
+        resp = self.post_pay(htmx=False)
         self.assertRedirects(resp, reverse("payments:payment_detail", args=[Transaction.objects.get().pk]))
 
     def test_invalid_phone_shows_error(self):
-        resp = self.client.post(
-            reverse("payments:pay"), {"phone": "12", "package": self.package.pk}, HTTP_HX_REQUEST="true"
-        )
+        resp = self.post_pay(phone="12")
         self.assertContains(resp, "valid Safaricom number")
         self.assertFalse(Transaction.objects.exists())
 
-    def test_amount_cannot_be_set_by_browser(self):
-        self.client.post(reverse("payments:pay"), {"phone": "0712345678", "package": self.package.pk, "amount": 1})
-        self.assertEqual(Transaction.objects.get().amount, 30)
+    def test_invalid_amounts_show_errors(self):
+        for amount, message in [("abc", "whole shillings"), ("0", "minimum"), ("999999", "maximum"), ("", "amount")]:
+            resp = self.post_pay(amount=amount)
+            self.assertContains(resp, message, msg_prefix=repr(amount))
+        self.assertFalse(Transaction.objects.exists())
+
+    def test_non_js_error_keeps_what_was_typed(self):
+        resp = self.post_pay(htmx=False, amount="abc", phone="0712345678")
+        self.assertEqual(resp.status_code, 400)
+        self.assertContains(resp, 'value="abc"', status_code=400)
+        self.assertContains(resp, 'value="0712345678"', status_code=400)
 
     def test_simulate_success(self):
-        txn = services.initiate_payment(package=self.package, raw_phone="0712345678")
+        txn = pay()
         resp = self.client.post(reverse("payments:simulate", args=[txn.pk, "success"]), HTTP_HX_REQUEST="true")
         self.assertContains(resp, "Payment received")
 
     @override_settings(MPESA_MODE="sandbox")
     def test_simulate_is_disabled_outside_simulate_mode(self):
-        txn = Transaction.objects.create(package=self.package, phone="254712345678", amount=30, checkout_request_id="x")
+        txn = Transaction.objects.create(phone="254712345678", amount=30, checkout_request_id="x")
         resp = self.client.post(reverse("payments:simulate", args=[txn.pk, "success"]))
         self.assertEqual(resp.status_code, 404)
         txn.refresh_from_db()
         self.assertEqual(txn.status, Status.PENDING)
 
     def test_status_partial_stops_polling_when_done(self):
-        txn = services.initiate_payment(package=self.package, raw_phone="0712345678")
+        txn = pay()
         url = reverse("payments:payment_status", args=[txn.pk])
         self.assertContains(self.client.get(url), 'hx-trigger="every 3s"')
         services.process_callback(callback(txn))
@@ -73,7 +81,7 @@ class CustomerPageTests(TestCase):
 @override_settings(MPESA_MODE="simulate", MPESA_CALLBACK_SECRET=SECRET)
 class CallbackEndpointTests(TestCase):
     def setUp(self):
-        self.txn = services.initiate_payment(package=Package.objects.create(name="X", price=30), raw_phone="0712345678")
+        self.txn = pay()
 
     def post(self, secret, body):
         return self.client.post(
@@ -103,10 +111,9 @@ class CallbackEndpointTests(TestCase):
 class DashboardTests(TestCase):
     def setUp(self):
         self.staff = User.objects.create_user("staff", password="x", is_staff=True)
-        package = Package.objects.create(name="X", price=30)
-        txn = services.initiate_payment(package=package, raw_phone="0712345678")
+        txn = pay()
         services.process_callback(callback(txn, receipt="TKRECEIPT1"))
-        services.initiate_payment(package=package, raw_phone="0722000000")
+        pay(phone="0722000000")
 
     def test_requires_staff_login(self):
         for name in ["dashboard:index", "dashboard:live", "dashboard:export_csv"]:

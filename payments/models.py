@@ -3,24 +3,6 @@ import uuid
 from django.db import models
 
 
-class Package(models.Model):
-    """Something a customer can pay for. Prices are whole Kenyan shillings."""
-
-    name = models.CharField(max_length=60, help_text="Shown under the price, e.g. '24 Hours'.")
-    description = models.CharField(max_length=120, blank=True, help_text="Small grey line on the card.")
-    price = models.PositiveIntegerField(help_text="Amount in KES (whole shillings).")
-    is_popular = models.BooleanField(default=False, help_text="Shows a 'Popular' badge.")
-    is_active = models.BooleanField(default=True)
-    sort_order = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["sort_order", "-price"]
-
-    def __str__(self):
-        return f"{self.name} (KES {self.price})"
-
-
 class Transaction(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -34,9 +16,8 @@ class Transaction(models.Model):
     FINAL_STATUSES = {Status.SUCCESS, Status.FAILED, Status.CANCELLED}
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    package = models.ForeignKey(Package, on_delete=models.PROTECT, null=True, related_name="transactions")
     phone = models.CharField(max_length=12, db_index=True, help_text="Format 2547XXXXXXXX / 2541XXXXXXXX")
-    amount = models.PositiveIntegerField()
+    amount = models.PositiveIntegerField(help_text="Whole Kenyan shillings, as entered by the customer.")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
 
     merchant_request_id = models.CharField(max_length=64, blank=True)

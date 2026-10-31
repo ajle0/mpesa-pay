@@ -8,13 +8,13 @@ from django.utils import timezone
 
 from payments import services
 from payments.daraja import DarajaError
-from payments.models import Package, Transaction
+from payments.models import Transaction
 
 Status = Transaction.Status
 
 
-def make_package(**kw):
-    return Package.objects.create(**{"name": "Test", "price": 30, **kw})
+def pay(phone="0712345678", amount="30", **kw):
+    return services.initiate_payment(raw_amount=amount, raw_phone=phone, **kw)
 
 
 def callback(txn, code=0, amount=None, receipt="TKA1B2C3D4"):
@@ -37,50 +37,83 @@ def callback(txn, code=0, amount=None, receipt="TKA1B2C3D4"):
     return {"Body": {"stkCallback": cb}}
 
 
+class ParseAmountTests(TestCase):
+    def test_accepts_common_formats(self):
+        for raw, expected in [
+            ("500", 500),
+            ("1,500", 1500),
+            ("Ksh 1 500", 1500),
+            ("KES2500", 2500),
+            ("250.00", 250),
+            (" 7 ", 7),
+        ]:
+            self.assertEqual(services.parse_amount(raw), expected, raw)
+
+    def test_rejects_non_amounts(self):
+        for raw in ["", "abc", "-5", "10.50", "1e3", None]:
+            with self.assertRaises(services.PaymentError, msg=raw):
+                services.parse_amount(raw)
+
+    @override_settings(PAY_MIN_AMOUNT=10, PAY_MAX_AMOUNT=1000)
+    def test_limits(self):
+        self.assertEqual(services.parse_amount("10"), 10)
+        self.assertEqual(services.parse_amount("1000"), 1000)
+        with self.assertRaisesMessage(services.PaymentError, "minimum amount is Ksh 10"):
+            services.parse_amount("9")
+        with self.assertRaisesMessage(services.PaymentError, "maximum amount is Ksh 1,000"):
+            services.parse_amount("1001")
+        with self.assertRaises(services.PaymentError):
+            services.parse_amount("0")
+
+
 @override_settings(MPESA_MODE="simulate")
 class InitiatePaymentTests(TestCase):
-    def setUp(self):
-        self.package = make_package()
-
-    def test_creates_pending_transaction_with_database_price(self):
-        txn = services.initiate_payment(package=self.package, raw_phone="0712345678", client_ip="1.2.3.4")
+    def test_creates_pending_transaction(self):
+        txn = pay(amount="1,250", client_ip="1.2.3.4")
         self.assertEqual(txn.status, Status.PENDING)
-        self.assertEqual(txn.amount, 30)
+        self.assertEqual(txn.amount, 1250)
         self.assertEqual(txn.phone, "254712345678")
         self.assertTrue(txn.checkout_request_id.startswith("ws_CO_SIM_"))
 
     def test_invalid_phone(self):
         with self.assertRaises(services.PaymentError):
-            services.initiate_payment(package=self.package, raw_phone="123")
+            pay(phone="123")
         self.assertFalse(Transaction.objects.exists())
 
-    def test_inactive_package(self):
-        self.package.is_active = False
+    def test_invalid_amount_creates_nothing(self):
         with self.assertRaises(services.PaymentError):
-            services.initiate_payment(package=self.package, raw_phone="0712345678")
+            pay(amount="0")
+        self.assertFalse(Transaction.objects.exists())
+
+    def test_amount_sent_to_mpesa_is_the_validated_one(self):
+        client = mock.Mock()
+        client.stk_push.return_value = {"MerchantRequestID": "m", "CheckoutRequestID": "c", "ResponseCode": "0"}
+        with mock.patch.object(services, "get_client", return_value=client):
+            pay(amount="Ksh 2,000")
+        self.assertEqual(client.stk_push.call_args.kwargs["amount"], 2000)
 
     @override_settings(PAY_RATE_LIMIT_PER_PHONE=2)
     def test_rate_limit_per_phone(self):
         for _ in range(2):
-            services.initiate_payment(package=self.package, raw_phone="0712345678")
+            pay()
         with self.assertRaisesMessage(services.PaymentError, "Too many"):
-            services.initiate_payment(package=self.package, raw_phone="0712345678")
+            pay()
         # A different number is unaffected.
-        services.initiate_payment(package=self.package, raw_phone="0722000000")
+        pay(phone="0722000000")
 
     @override_settings(PAY_RATE_LIMIT_PER_IP=2)
     def test_rate_limit_per_ip(self):
-        services.initiate_payment(package=self.package, raw_phone="0711111111", client_ip="9.9.9.9")
-        services.initiate_payment(package=self.package, raw_phone="0722222222", client_ip="9.9.9.9")
+        pay(phone="0711111111", client_ip="9.9.9.9")
+        pay(phone="0722222222", client_ip="9.9.9.9")
         with self.assertRaises(services.PaymentError):
-            services.initiate_payment(package=self.package, raw_phone="0733333333", client_ip="9.9.9.9")
+            pay(phone="0733333333", client_ip="9.9.9.9")
 
     def test_daraja_refusal_marks_failed(self):
         client = mock.Mock()
         client.stk_push.side_effect = DarajaError("boom")
         with mock.patch.object(services, "get_client", return_value=client):
             with self.assertRaises(services.PaymentError):
-                services.initiate_payment(package=self.package, raw_phone="0712345678")
+                pay()
         txn = Transaction.objects.get()
         self.assertEqual(txn.status, Status.FAILED)
         self.assertEqual(txn.result_desc, "boom")
@@ -89,7 +122,7 @@ class InitiatePaymentTests(TestCase):
 @override_settings(MPESA_MODE="simulate")
 class CallbackTests(TestCase):
     def setUp(self):
-        self.txn = services.initiate_payment(package=make_package(), raw_phone="0712345678")
+        self.txn = pay()
 
     def test_success(self):
         services.process_callback(callback(self.txn))
@@ -137,7 +170,7 @@ class CallbackTests(TestCase):
 @override_settings(MPESA_MODE="simulate", PAY_PENDING_EXPIRY_SECONDS=180)
 class RefreshStatusTests(TestCase):
     def setUp(self):
-        self.txn = services.initiate_payment(package=make_package(), raw_phone="0712345678")
+        self.txn = pay()
 
     def age(self, seconds):
         Transaction.objects.filter(pk=self.txn.pk).update(created_at=timezone.now() - timedelta(seconds=seconds))

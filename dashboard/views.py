@@ -1,6 +1,6 @@
 """
 Staff-only dashboard: today's numbers, a 7-day revenue chart and a live
-transactions table. Package and record management stays in Django admin.
+transactions table. Record browsing also lives in the Django admin.
 """
 
 import csv
@@ -22,15 +22,13 @@ TABLE_LIMIT = 50
 
 
 def _filtered_transactions(request):
-    qs = Transaction.objects.select_related("package")
+    qs = Transaction.objects.all()
     status = request.GET.get("status", "")
     q = request.GET.get("q", "").strip()
     if status in Status.values:
         qs = qs.filter(status=status)
     if q:
-        qs = qs.filter(
-            Q(phone__icontains=q.lstrip("0+")) | Q(mpesa_receipt__icontains=q) | Q(package__name__icontains=q)
-        )
+        qs = qs.filter(Q(phone__icontains=q.lstrip("0+")) | Q(mpesa_receipt__icontains=q))
     return qs, status, q
 
 
@@ -125,14 +123,13 @@ def export_csv(request):
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = f'attachment; filename="payments-{stamp}.csv"'
     writer = csv.writer(response)
-    writer.writerow(["created_at", "reference", "phone", "package", "amount", "status", "mpesa_receipt", "result"])
+    writer.writerow(["created_at", "reference", "phone", "amount", "status", "mpesa_receipt", "result"])
     for txn in qs.iterator():
         writer.writerow(
             [
                 timezone.localtime(txn.created_at).isoformat(timespec="seconds"),
                 txn.reference,
                 txn.phone,
-                txn.package.name if txn.package else "",
                 txn.amount,
                 txn.status,
                 txn.mpesa_receipt,

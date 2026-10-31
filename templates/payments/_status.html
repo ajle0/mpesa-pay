@@ -46,11 +46,6 @@
         <dt class="text-slate-500">M-Pesa receipt</dt>
         <dd class="font-mono font-semibold">{{ txn.mpesa_receipt|default:"Arriving shortly" }}</dd>
       </div>
-      {% if txn.package %}
-      <div class="flex justify-between gap-4 px-4 py-2.5">
-        <dt class="text-slate-500">Package</dt><dd class="font-medium">{{ txn.package.name }}</dd>
-      </div>
-      {% endif %}
       <div class="flex justify-between gap-4 px-4 py-2.5">
         <dt class="text-slate-500">Phone</dt><dd class="font-medium">{{ txn.masked_phone }}</dd>
       </div>

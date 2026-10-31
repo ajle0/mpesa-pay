@@ -11,10 +11,6 @@
       <span class="font-medium text-slate-600">Dashboard</span>
     </div>
     <nav class="flex items-center gap-1 text-sm">
-      <a href="{% url 'admin:payments_package_changelist' %}"
-         class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">
-        {% icon "package" "w-4 h-4" %} Packages
-      </a>
       <a href="{% url 'admin:index' %}"
          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-100">
         {% icon "settings" "w-4 h-4" %} Admin
@@ -33,7 +29,7 @@
   <form id="filters" class="flex flex-wrap items-center gap-2" method="get"
         hx-get="{% url 'dashboard:live' %}" hx-target="#live" hx-swap="innerHTML"
         hx-trigger="change, keyup changed delay:400ms from:#q, submit">
-    <input id="q" name="q" value="{{ q }}" type="search" placeholder="Search phone, receipt or package"
+    <input id="q" name="q" value="{{ q }}" type="search" placeholder="Search phone or receipt"
            class="w-full sm:w-72 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none
                   focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">
     <select name="status" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">

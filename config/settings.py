@@ -188,6 +188,11 @@ MPESA_CALLBACK_BASE_URL = env("MPESA_CALLBACK_BASE_URL", default="").rstrip("/")
 MPESA_CALLBACK_SECRET = env("MPESA_CALLBACK_SECRET", default="") or "dev-callback-secret"
 MPESA_TIMEOUT_SECONDS = env.int("MPESA_TIMEOUT_SECONDS", default=15)
 
+# Amount limits in whole shillings. M-Pesa's own per-transaction cap is
+# KES 250,000; set a lower ceiling if that suits your use case.
+PAY_MIN_AMOUNT = env.int("PAY_MIN_AMOUNT", default=1)
+PAY_MAX_AMOUNT = env.int("PAY_MAX_AMOUNT", default=250_000)
+
 # Abuse protection for the public pay endpoint.
 PAY_RATE_LIMIT_PER_PHONE = env.int("PAY_RATE_LIMIT_PER_PHONE", default=3)
 PAY_RATE_LIMIT_PER_IP = env.int("PAY_RATE_LIMIT_PER_IP", default=10)

@@ -1,7 +1,7 @@
 # M-Pesa Pay
 
 A minimal, production-minded payment page for **M-Pesa Express (STK Push)** using Safaricom's Daraja API.
-The customer enters their number, picks a package, gets a PIN prompt on their phone, and the page
+The customer enters an amount and their number, gets a PIN prompt on their phone, and the page
 updates itself when M-Pesa confirms. Staff get a live dashboard and the Django admin.
 
 Built with Django 5.2 LTS, HTMX and Tailwind. Runs the same on macOS (Apple Silicon or Intel),
@@ -15,7 +15,8 @@ Windows and Linux.
 
 ## Features
 
-- **STK Push checkout:** prices always come from the database, never from the browser.
+- **STK Push checkout:** the customer types any amount; the server re-validates it (whole shillings,
+  within `PAY_MIN_AMOUNT`–`PAY_MAX_AMOUNT`) before anything is sent to M-Pesa.
 - **Reliable status:** the Safaricom callback is the main signal. The STK Query endpoint is the
   fallback when a callback never arrives, and payments with no answer time out after 3 minutes.
 - **Safe callbacks:** a secret callback URL, idempotent and row-locked processing, an amount check,
@@ -24,11 +25,11 @@ Windows and Linux.
   needed).
 - **Dashboard:** revenue today, success rate, a 7-day revenue chart, a searchable payments table,
   CSV export and a manual "Re-check" for stuck payments.
-- **Django admin:** edit packages; payments are read-only financial records.
+- **Django admin:** browse and export payments, which are read-only financial records.
 - **Abuse protection:** rate limits per phone number and per IP, and admin login lockout
   (django-axes).
 - **Simulate mode:** run and demo everything with **no Safaricom account at all**.
-- **Tests:** 44 tests covering the Daraja client, callbacks, timeouts and views, run in CI on
+- **Tests:** 49 tests covering the Daraja client, callbacks, timeouts and views, run in CI on
   Ubuntu, Windows and macOS.
 
 ## Quick start
@@ -83,7 +84,7 @@ Options 2 and 3 use SQLite, so no database server is needed.
 |---|---|
 | http://localhost:8000 | Payment page. After paying, use the yellow *Simulation* buttons to act as the customer. |
 | http://localhost:8000/dashboard/ | Live dashboard (staff login) |
-| http://localhost:8000/admin/ | Django admin: packages and payment records |
+| http://localhost:8000/admin/ | Django admin: payment records |
 
 ## Using the real Daraja sandbox
 
@@ -171,11 +172,11 @@ config/            settings (all values from environment variables), URLs
 payments/
   daraja.py        HTTP client for Daraja: OAuth, STK push, STK query, phone normalising
   services.py      business logic: start payment, process callback, status fallback
-  models.py        Package, Transaction (the database is the source of truth)
+  models.py        Transaction (the database is the source of truth)
   views.py         payment page, status polling, callback endpoint, simulate mode
   admin.py         Django admin config (read-only payments, CSV export, re-check)
   management/      reconcile_pending, ensure_admin
-  tests/           44 tests, no network needed
+  tests/           49 tests, no network needed
 dashboard/         staff dashboard views
 templates/         Django templates (HTMX partials start with _)
 static/            compiled CSS (committed) and vendored htmx, so it works offline

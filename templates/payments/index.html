@@ -16,57 +16,45 @@
       {% csrf_token %}
 
       <div>
+        <label for="amount" class="flex items-center gap-2 text-sm font-medium text-slate-700">
+          {% icon "credit-card" "w-4 h-4 text-slate-500" %} Amount
+        </label>
+        <div class="relative mt-2">
+          <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-lg font-semibold text-slate-400">Ksh</span>
+          <input id="amount" name="amount" type="text" inputmode="numeric" autocomplete="off" required
+                 placeholder="0" maxlength="12" value="{{ amount }}" data-pay-amount-input
+                 aria-describedby="amount-hint"
+                 class="w-full rounded-xl border border-slate-300 bg-white py-3 pl-16 pr-4 text-2xl font-bold tracking-tight
+                        outline-none transition placeholder:text-slate-300
+                        focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">
+        </div>
+        <p id="amount-hint" class="mt-1.5 text-xs text-slate-500">
+          Whole shillings, from {{ min_amount|kes }} to {{ max_amount|kes }}.
+        </p>
+      </div>
+
+      <div>
         <label for="phone" class="flex items-center gap-2 text-sm font-medium text-slate-700">
           {% icon "smartphone" "w-4 h-4 text-slate-500" %} M-Pesa number
         </label>
         <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required
-               placeholder="0712 345 678" maxlength="20"
+               placeholder="0712 345 678" maxlength="20" value="{{ phone }}"
                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none
                       transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100">
       </div>
-
-      <fieldset>
-        <legend class="flex items-center gap-2 text-sm font-medium text-slate-700">
-          {% icon "package" "w-4 h-4 text-slate-500" %} Select package
-        </legend>
-        <div class="mt-3 grid grid-cols-2 gap-3">
-          {% for p in packages %}
-            <label class="relative cursor-pointer rounded-xl border border-slate-200 bg-white px-3 pt-5 pb-4 text-center
-                          transition hover:border-emerald-300
-                          has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 has-[:checked]:ring-2 has-[:checked]:ring-emerald-500/30
-                          has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-emerald-200">
-              <input type="radio" name="package" value="{{ p.pk }}" data-price="{{ p.price }}" class="sr-only"
-                     {% if p.pk == selected.pk %}checked{% endif %} required>
-              {% if p.is_popular %}
-                <span class="absolute -top-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full
-                             bg-orange-500 px-2.5 py-0.5 text-[11px] font-semibold text-white whitespace-nowrap">
-                  {% icon "star" "w-3 h-3" %} Popular
-                </span>
-              {% endif %}
-              <span class="block text-2xl font-bold tracking-tight">{{ p.price|kes }}</span>
-              <span class="mt-1 block text-sm text-slate-600">{{ p.name }}</span>
-              {% if p.description %}<span class="mt-1 block text-xs text-slate-400">{{ p.description }}</span>{% endif %}
-            </label>
-          {% empty %}
-            <p class="col-span-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-              No packages yet. Add some in the admin.
-            </p>
-          {% endfor %}
-        </div>
-      </fieldset>
 
       <div id="form-error" aria-live="polite">
         {% if error %}{% include "payments/_form_error.html" %}{% endif %}
       </div>
 
-      <button type="submit" {% if not packages %}disabled{% endif %}
+      <button type="submit"
               class="group flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5
                      font-semibold text-white shadow-sm transition hover:bg-emerald-700
                      focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200
                      disabled:cursor-not-allowed disabled:opacity-60">
         <span class="htmx-indicator-hide inline-flex">{% icon "zap" "w-4 h-4" %}</span>
         <span class="spinner hidden h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-        <span>Pay with M-Pesa · <span data-pay-amount>{{ selected.price|kes }}</span></span>
+        <span data-pay-label>Pay with M-Pesa</span>
       </button>
     </form>
   </section>

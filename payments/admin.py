@@ -6,16 +6,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from . import services
-from .models import Package, Transaction
-
-
-@admin.register(Package)
-class PackageAdmin(admin.ModelAdmin):
-    list_display = ("name", "price", "description", "is_popular", "is_active", "sort_order")
-    list_editable = ("price", "is_popular", "is_active", "sort_order")
-    list_filter = ("is_active", "is_popular")
-    search_fields = ("name",)
-
+from .models import Transaction
 
 STATUS_COLOURS = {
     "SUCCESS": "#15803d",
@@ -28,11 +19,10 @@ STATUS_COLOURS = {
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "phone", "amount", "status_badge", "mpesa_receipt", "package", "result_desc")
-    list_filter = ("status", "package", "created_at")
+    list_display = ("created_at", "phone", "amount", "status_badge", "mpesa_receipt", "result_desc")
+    list_filter = ("status", "created_at")
     search_fields = ("phone", "mpesa_receipt", "checkout_request_id", "merchant_request_id")
     date_hierarchy = "created_at"
-    list_select_related = ("package",)
     actions = ("recheck_status", "export_csv")
     readonly_fields = [f.name for f in Transaction._meta.fields]
 
@@ -67,8 +57,8 @@ class TransactionAdmin(admin.ModelAdmin):
         stamp = timezone.localtime().strftime("%Y%m%d-%H%M")
         response["Content-Disposition"] = f'attachment; filename="transactions-{stamp}.csv"'
         writer = csv.writer(response)
-        fields = ["created_at", "phone", "amount", "status", "mpesa_receipt", "package", "result_desc"]
+        fields = ["created_at", "phone", "amount", "status", "mpesa_receipt", "result_desc"]
         writer.writerow(fields)
-        for txn in queryset.select_related("package"):
+        for txn in queryset:
             writer.writerow([getattr(txn, f) for f in fields])
         return response
