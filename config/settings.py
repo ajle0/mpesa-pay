@@ -171,10 +171,10 @@ SITE_NAME = env("SITE_NAME", default="QuickPay")
 # sandbox    - Safaricom sandbox (sandbox.safaricom.co.ke).
 # production - live payments (api.safaricom.co.ke).
 MPESA_MODE = env("MPESA_MODE", default="simulate")
-MPESA_CONSUMER_KEY = env("MPESA_CONSUMER_KEY", default="")
-MPESA_CONSUMER_SECRET = env("MPESA_CONSUMER_SECRET", default="")
-MPESA_SHORTCODE = env("MPESA_SHORTCODE", default="174379")
-MPESA_PASSKEY = env("MPESA_PASSKEY", default="")
+MPESA_CONSUMER_KEY = env("MPESA_CONSUMER_KEY", default="").strip()
+MPESA_CONSUMER_SECRET = env("MPESA_CONSUMER_SECRET", default="").strip()
+MPESA_SHORTCODE = env("MPESA_SHORTCODE", default="174379").strip()
+MPESA_PASSKEY = env("MPESA_PASSKEY", default="").strip()
 # CustomerPayBillOnline (paybill) or CustomerBuyGoodsOnline (till)
 MPESA_TRANSACTION_TYPE = env("MPESA_TRANSACTION_TYPE", default="CustomerPayBillOnline")
 # For tills, PartyB is the till number while BusinessShortCode is the store
@@ -183,9 +183,9 @@ MPESA_PARTY_B = env("MPESA_PARTY_B", default="") or MPESA_SHORTCODE
 MPESA_ACCOUNT_REFERENCE = env("MPESA_ACCOUNT_REFERENCE", default=SITE_NAME)[:12]
 MPESA_TRANSACTION_DESC = env("MPESA_TRANSACTION_DESC", default="Payment")[:13]
 # Public HTTPS base URL Safaricom can reach, e.g. your ngrok domain.
-MPESA_CALLBACK_BASE_URL = env("MPESA_CALLBACK_BASE_URL", default="").rstrip("/")
+MPESA_CALLBACK_BASE_URL = env("MPESA_CALLBACK_BASE_URL", default="").strip().rstrip("/")
 # Random secret embedded in the callback path so outsiders can't forge callbacks.
-MPESA_CALLBACK_SECRET = env("MPESA_CALLBACK_SECRET", default="") or "dev-callback-secret"
+MPESA_CALLBACK_SECRET = env("MPESA_CALLBACK_SECRET", default="").strip() or "dev-callback-secret"
 MPESA_TIMEOUT_SECONDS = env.int("MPESA_TIMEOUT_SECONDS", default=15)
 
 # Amount limits in whole shillings. M-Pesa's own per-transaction cap is
@@ -230,6 +230,25 @@ if MPESA_MODE != "simulate":
         raise ImproperlyConfigured(
             "Set MPESA_CALLBACK_SECRET to a long random string "
             '(python -c "import secrets; print(secrets.token_urlsafe(32))").'
+        )
+
+# Catch a malformed callback URL now, with a clear message, instead of letting
+# Safaricom reject every payment with "Invalid CallBackURL". Typical causes: a
+# comment pasted onto the same line in .env, or a stray space inside the value.
+if MPESA_CALLBACK_BASE_URL:
+    _parsed = urlparse(MPESA_CALLBACK_BASE_URL)
+    if (
+        _parsed.scheme != "https"
+        or not _parsed.hostname
+        or _parsed.path
+        or _parsed.query
+        or _parsed.fragment
+        or any(ch.isspace() for ch in MPESA_CALLBACK_BASE_URL)
+    ):
+        raise ImproperlyConfigured(
+            "MPESA_CALLBACK_BASE_URL must be just an https address such as "
+            f"https://your-domain.ngrok-free.dev, but .env has {MPESA_CALLBACK_BASE_URL!r}. "
+            "Check for spaces, a path, or a comment on the same line."
         )
 
 # The public callback host (e.g. your ngrok domain) must be an allowed host.
